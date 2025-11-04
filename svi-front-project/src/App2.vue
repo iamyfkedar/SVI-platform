@@ -1,6 +1,7 @@
 <template>
   <div class="container">
-    <div id="map-container" style="width: 100vw; height: 100vh;"></div>
+    <div id="map-container1" style="width: 47.5vw; height: 100vh; margin-right: 5vw;"></div>
+    <div id="map-container2" style="width: 47.5vw; height: 100vh;"></div>
   </div>
 </template>
 
@@ -14,76 +15,70 @@ import * as turf from '@turf/turf'
 mapboxgl.accessToken = 'pk.eyJ1Ijoid2lubmlleiIsImEiOiJjbDEyNmMxb2MycGJuM2RtdTBrNHk5OGcyIn0.s0v5JoEeCedaL7tqMCBNLA'
 
 onMounted(() => {
-  const map = new mapboxgl.Map({
-    container: 'map-container',
-    style: 'mapbox://styles/mapbox/light-v11',
+  const map1 = new mapboxgl.Map({
+    container: 'map-container1',
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [-73.9482629, 40.8035441],
+    zoom: 15,
+    pitch: 40,
+    antialias: true
+  });
+  const map2 = new mapboxgl.Map({
+    container: 'map-container2',
+    style: 'mapbox://styles/mapbox/streets-v12',
     center: [-73.9482629, 40.8035441],
     zoom: 15,
     pitch: 40,
     antialias: true
   });
 
-  map.on('load', () => {
-    map.addSource('highlight-buildings', {
-      'type': 'geojson',
-      'data': { 'type': 'FeatureCollection', 'features': [] }
-    });
+  map1.on('load', () => {
+    fetch('/cal_height_check4.geojson')
+    .then(response => response.json())
+    .then(data => {
+      map1.addSource('highlight-buildings', {
+        'type': 'geojson',
+        'data': data
+      });
 
-    // 2. 添加建筑高亮图层
-    map.addLayer({
-      id: 'highlight-buildings-layer',
-      type: 'fill-extrusion',
-      source: 'highlight-buildings',
-      paint: {
-        'fill-extrusion-color': '#f00', // 高亮颜色
-        'fill-extrusion-height': ['get', 'height'],
-        'fill-extrusion-base': ['get', 'min_height'],
-        'fill-extrusion-opacity': 0.6
-      }
-    })
-
-    // 3. 点击地图事件
-    map.on('click', (e) => {
-      const radius = 50 // 缓冲半径，单位米
-      const center = [e.lngLat.lng, e.lngLat.lat]
-
-      // 创建圆形缓冲区
-      const circle = turf.circle(center, radius / 1000, { units: 'kilometers' })
-
-      // 查询原始建筑数据源
-      const features = map.querySourceFeatures('composite', {
-        sourceLayer: 'building'
+      // 2. 添加建筑高亮图层
+      map1.addLayer({
+        id: 'buildings-height-cal-layer',
+        type: 'fill-extrusion',
+        source: 'highlight-buildings',
+        paint: {
+          'fill-extrusion-color': '#f00', // 高亮颜色
+          'fill-extrusion-height': [
+            'to-number', ['get', 'height_cal']
+          ],
+          'fill-extrusion-opacity': 0.6
+        }
       })
-      
-      // 筛选与圆形相交的建筑
-      const intersected = features.filter(f => turf.booleanIntersects(f, circle))
-      console.log('111', intersected);
+    })
+  })
 
-      // 更新高亮图层数据
-      const geojson = {
-        type: 'FeatureCollection',
-        features: intersected
-      }
-      map.getSource('highlight-buildings').setData(geojson)
+  map2.on('load', () => {
+    fetch('/cal_height_check4.geojson')
+    .then(response => response.json())
+    .then(data => {
+      map2.addSource('highlight-buildings', {
+        'type': 'geojson',
+        'data': data
+      });
 
-      // 可选：在地图上绘制圆形缓冲区
-      if (map.getSource('buffer-circle')) {
-        map.getSource('buffer-circle').setData(circle)
-      } else {
-        map.addSource('buffer-circle', {
-          type: 'geojson',
-          data: circle
-        })
-        map.addLayer({
-          id: 'buffer-circle-layer',
-          type: 'line',
-          source: 'buffer-circle',
-          paint: {
-            'line-color': '#00f',
-            'line-width': 2
-          }
-        })
-      }
+      // 2. 添加建筑高亮图层
+      map2.addLayer({
+        id: 'buildings-height-layer',
+        type: 'fill-extrusion',
+        source: 'highlight-buildings',
+        paint: {
+          'fill-extrusion-color': '#aaa', // 高亮颜色
+          'fill-extrusion-height': [
+            'to-number', ['get', 'height']
+          ],
+          'fill-extrusion-opacity': 0.6
+        }
+      })
     })
   })
 })
@@ -95,5 +90,7 @@ onMounted(() => {
 .container {
   margin: 0;
   overflow: hidden;
+  display: flex;
+
 }
 </style>
