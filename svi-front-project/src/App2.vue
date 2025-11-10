@@ -23,7 +23,7 @@ import { GeoJsonLayer } from '@deck.gl/layers'
 import { MapboxOverlay } from '@deck.gl/mapbox'
 import * as turf from '@turf/turf'
 import { parseSVIFileList, processSVIFiles, uploadSVIFiles } from './utils/readSVI'
-
+  
 mapboxgl.accessToken = 'pk.eyJ1Ijoid2lubmlleiIsImEiOiJjbDEyNmMxb2MycGJuM2RtdTBrNHk5OGcyIn0.s0v5JoEeCedaL7tqMCBNLA'
 
 const sviCoords = ref([])
