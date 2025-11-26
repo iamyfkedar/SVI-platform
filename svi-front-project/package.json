@@ -12,6 +12,7 @@
     "@deck.gl/core": "^9.2.1",
     "@deck.gl/layers": "^9.2.1",
     "@deck.gl/mapbox": "^9.2.1",
+    "@luma.gl/shadertools": "^9.2.4",
     "@photo-sphere-viewer/core": "^5.14.0",
     "@turf/turf": "^7.2.0",
     "i": "^0.3.7",
