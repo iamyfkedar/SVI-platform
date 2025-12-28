@@ -648,7 +648,7 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
+<style scoped>
 body {
   margin: 0;
   overflow: hidden;

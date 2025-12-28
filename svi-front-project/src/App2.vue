@@ -220,7 +220,7 @@ function showSVIBuildings(features) {
 }
 </script>
 
-<style>
+<style scoped>
 .container {
   margin: 0;
   overflow: hidden;
