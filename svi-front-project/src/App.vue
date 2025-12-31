@@ -539,16 +539,15 @@ function findBuildingsIntersectingPointBuffer() {
   const lat = point.value.lat;
   const img = imgRef.value;
   if (!img) return;
-  const scaleX = displayWidth.value / img.naturalWidth;
   for (let idx = 0; idx < maskList.value.length; idx++) { 
     if (idx === highlightMaskIdx.value) {
       const mask = maskList.value[idx];
       const maskArray = mask.points.map(pt => [pt.x, pt.y]);
       let maxVal = Math.max(...maskArray.map(item => item[0]));
       let minVal = Math.min(...maskArray.map(item => item[0]));
-      let midDegree = (minVal + maxVal) * scaleX / 2 / displayWidth.value * 360 - 180;
-      let minDegree = (minVal) * scaleX / displayWidth.value * 360 - 180;
-      let maxDegree = (maxVal) * scaleX / displayWidth.value * 360 - 180;
+      let midDegree = (minVal + maxVal) / 2 / img.naturalWidth * 360 - 180;
+      let minDegree = minVal / img.naturalWidth * 360 - 180;
+      let maxDegree = maxVal / img.naturalWidth * 360 - 180;
       let heading = (540 - rotation.value) % 360; // 转为正北为0，顺时针方向
       let viewAngle = heading + midDegree; // 视角方向 
       let minViewAngle = heading + minDegree;
@@ -560,6 +559,7 @@ function findBuildingsIntersectingPointBuffer() {
 }
 
 function drawMask() {
+  // 绘制全景图中的mask，包括高亮的mask和非高亮的mask
   const canvas = maskCanvasRef.value;
   if (!canvas) return;
   const ctx = canvas.getContext('2d');

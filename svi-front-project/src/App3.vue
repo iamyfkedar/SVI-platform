@@ -20,10 +20,11 @@
 </template>
 
 <script setup>
-import { onMounted, ref, onUnmounted, watch, nextTick } from "vue";
+import { onMounted, ref, onUnmounted } from "vue";
+import { initViewer, setViewerPanorama, destroyViewer, SELECT_MARKER_EVENT } from './utils/viewerMark'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf';
-import { Viewer } from '@photo-sphere-viewer/core';
+import { log } from "@deck.gl/core";
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoid2lubmlleiIsImEiOiJjbDEyNmMxb2MycGJuM2RtdTBrNHk5OGcyIn0.s0v5JoEeCedaL7tqMCBNLA'
 const imgUrl = ref('/image/0,40.80637146,-73.94810491.jpg');
@@ -41,6 +42,8 @@ const point = ref(null); // 当前点坐标
 const rotation = ref(0); // 当前图片方向角
 const recentIntersectedBuilding = ref(null); // 最近的相交建筑
 const imgContainerRef = ref(null);
+const imgWidth = ref(0);
+const imgHeight = ref(0);
 let minLineId = null;
 let maxLineId = null;
 
@@ -52,20 +55,6 @@ function addMarkerAndFly(lat, lng) {
     .setLngLat([lng, lat])
     .addTo(map);
   map.flyTo({ center: [lng, lat], zoom: 17 });
-}
-
-
-function onFileChange(e){
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
-  const url = URL.createObjectURL(file);
-  // 释放上一个 objectURL
-  if(currentObjectUrl && imgUrl.value === currentObjectUrl){
-    try{ URL.revokeObjectURL(currentObjectUrl); } catch(e){}
-  }
-  currentObjectUrl = url;
-  imgUrl.value = url;
-  maskList.value = []; // 切换图片时清空掩码
 }
 
 function onMetaChange(e){
@@ -171,31 +160,6 @@ function highlightBuilding(centerLng, centerLat, middleDeg, minDeg, maxDeg) {
       'line-width': 1
     }
   });
-  // 计算最近相交建筑
-  if (intersected.value && intersected.value.length && point.value) {
-    const pt = turf.point([point.value.lng, point.value.lat]);
-    const nearest = findNearestIntersectedBuilding(line, intersected.value, pt);
-    recentIntersectedBuilding.value = nearest;
-    // 高亮该建筑足迹
-    if (map.getLayer('nearest-building')) map.removeLayer('nearest-building');
-    if (map.getSource('nearest-building')) map.removeSource('nearest-building');
-    if (nearest) {
-      map.addSource('nearest-building', {
-        type: 'geojson',
-        data: nearest
-      });
-      map.addLayer({
-        id: 'nearest-building',
-        type: 'fill',
-        source: 'nearest-building',
-        paint: {
-          'fill-color': maskList.value[highlightMaskIdx.value].color,
-          'fill-opacity': 0.7,
-          'fill-outline-color': maskList.value[highlightMaskIdx.value].color
-        }
-      });
-    }
-  }
 }
 
 function intersectBuildingsWithPoints(lon, lat, radiusMeters) {
@@ -217,6 +181,36 @@ function intersectBuildingsWithPoints(lon, lat, radiusMeters) {
   }
 }
 
+function mask2Angle(markers, width, rotation){
+  if (!point.value) return [];
+  const lon = point.value.lng;
+  const lat = point.value.lat;
+  const maskArray = markers.map(pt => {
+    return [pt[0]/Math.PI*180, pt[1]/Math.PI*180];
+  });
+  let maxDegree = Math.max(...maskArray.map(item => item[0]));
+  let minDegree = Math.min(...maskArray.map(item => item[0]));
+  let midDegree = (minDegree + maxDegree) / 2 / width * 360 - 180;
+  let heading = (540 - rotation) % 360; // 转为正北为0，顺时针方向
+  let viewAngle = heading + midDegree; // 视角方向 
+  let minViewAngle = heading + minDegree;
+  let maxViewAngle = heading + maxDegree;
+  console.log('viewangle', viewAngle);
+  console.log('minViewAngle', minViewAngle);
+  console.log('maxViewAngle', maxViewAngle);
+  highlightBuilding(lon, lat, viewAngle, minViewAngle, maxViewAngle);
+}
+
+// 处理 viewer 选中 marker 事件
+const onPsvSelect = (ev) => {
+  const ce = ev
+  const detail = ce.detail || {}
+  const mask = detail.points
+  console.log('img', imgContainerRef.value)
+  mask2Angle(mask, imgWidth.value, rotation.value);
+  // detail.points 就是该面的顶点数组（yaw, pitch）
+  // 在这里可以把数据传给父组件的逻辑或更新响应式状态
+};
 
 onMounted(() => {
   map = new mapboxgl.Map({
@@ -230,15 +224,41 @@ onMounted(() => {
   map.on('load', async () => { 
     mapLoaded = true;
   });
-  mapRef.value = map
-    const viewer = new Viewer({
-        container: imgContainerRef.value,
-        panorama: imgUrl.value,
-        caption: 'Parc national du Mercantour <b>&copy; Damien Sorel</b>',
-        touchmoveTwoFingers: true,
-        mousewheelCtrlKey: true,
-    });
+  mapRef.value = map;
+
+  initViewer(imgContainerRef.value, imgUrl.value);
+  // 监听 viewer 派发的 marker select 事件
+  if (imgContainerRef.value && (imgContainerRef.value).addEventListener) {
+    (imgContainerRef.value).addEventListener(SELECT_MARKER_EVENT, onPsvSelect)
+  };
+  // 保存引用以便在卸载时移除
+  (imgContainerRef).__onPsvSelect = onPsvSelect
 })
+
+// 在 onFileChange 中更新 viewer 全景
+function onFileChange(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  // 获取图片实际尺寸保存下来
+  const img = new Image();
+  img.onload = () => {
+    imgWidth.value = img.naturalWidth;
+    imgHeight.value = img.naturalHeight;
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+  if(currentObjectUrl && imgUrl.value === currentObjectUrl){
+    try{ URL.revokeObjectURL(currentObjectUrl); } catch(e){}
+  }
+  currentObjectUrl = url;
+  imgUrl.value = url;
+  maskList.value = [];
+  // 更新 viewer panorama
+  if (url) {
+    setViewerPanorama(url).catch(err => console.warn('viewer setPanorama error', err));
+  }
+}
 
 onUnmounted(() => {
   if(currentObjectUrl && imgUrl.value === currentObjectUrl){
@@ -248,6 +268,12 @@ onUnmounted(() => {
   if(marker){ marker.remove(); marker = null; }
   map = null;
   mapLoaded = false;
+  // 销毁 viewer 实例，释放资源
+  try {
+    destroyViewer();
+  } catch (err) {
+    console.warn('destroy viewer error', err);
+  }
   if (minLineId && map.getLayer(minLineId)) map.removeLayer(minLineId);
   if (minLineId && map.getSource(minLineId)) map.removeSource(minLineId);
   if (maxLineId && map.getLayer(maxLineId)) map.removeLayer(maxLineId);
@@ -255,6 +281,11 @@ onUnmounted(() => {
   // 清理 streetviews 点图层和数据源
   if (map && map.getLayer && map.getLayer('streetviews-points-layer')) map.removeLayer('streetviews-points-layer');
   if (map && map.getSource && map.getSource('streetviews-points')) map.removeSource('streetviews-points');
+  // 移除监听
+  const handler = (imgContainerRef).__onPsvSelect
+  if (handler && imgContainerRef.value && (imgContainerRef.value).removeEventListener) {
+    (imgContainerRef.value).removeEventListener(SELECT_MARKER_EVENT, handler)
+  }
 });
 </script>
 
