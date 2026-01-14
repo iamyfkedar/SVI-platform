@@ -14,6 +14,13 @@
       </div>
 
       <div class="img-container" ref="imgContainerRef">
+        <!-- 绘制开关按钮 -->
+        <button class="polygon-toggle" @click="toggleDrawing" :class="{ active: drawingEnabled }">
+          {{ drawingEnabled ? '停止绘制多边形' : '开始绘制多边形' }}
+        </button>
+        <button class="line-toggle" @click="toggleDrawing" :class="{ active: drawingEnabled }">
+          {{ drawingEnabled ? '停止绘制线段' : '开始绘制线段' }}
+        </button>
       </div>
     </div>
   </div>
@@ -21,7 +28,7 @@
 
 <script setup>
 import { onMounted, ref, onUnmounted } from "vue";
-import { initViewer, setViewerPanorama, destroyViewer, SELECT_MARKER_EVENT } from './utils/viewerMark'
+import { initViewer, setViewerPanorama, destroyViewer, SELECT_MARKER_EVENT, setDrawingEnabled } from './utils/viewerMark'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf';
 import { log } from "@deck.gl/core";
@@ -46,6 +53,11 @@ const imgWidth = ref(0);
 const imgHeight = ref(0);
 let minLineId = null;
 let maxLineId = null;
+const drawingEnabled = ref(false)
+function toggleDrawing() {
+  drawingEnabled.value = !drawingEnabled.value
+  setDrawingEnabled(drawingEnabled.value)
+}
 
 
 function addMarkerAndFly(lat, lng) {
@@ -340,11 +352,37 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-.img-preview {
-  max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-  display: block;
+/* 绘制开关按钮 — 绝对定位在 img-container 内（img-container 保持 absolute） */
+.polygon-toggle {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 9999;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
 }
-
+.polygon-toggle.active {
+  background: #ff5722;
+}
+.line-toggle {
+  position: absolute;
+  left: 8px;
+  top: 46px;
+  z-index: 9999;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.line-toggle.active {
+  background: #ff5722;
+}
 </style>
