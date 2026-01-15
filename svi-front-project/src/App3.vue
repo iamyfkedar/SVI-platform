@@ -15,11 +15,11 @@
 
       <div class="img-container" ref="imgContainerRef">
         <!-- 绘制开关按钮 -->
-        <button class="polygon-toggle" @click="toggleDrawing" :class="{ active: drawingEnabled }">
-          {{ drawingEnabled ? '停止绘制多边形' : '开始绘制多边形' }}
+        <button class="polygon-toggle" @click="toggleDrawingPolygon" :class="{ active: drawingPolygonEnabled }">
+          {{ drawingPolygonEnabled ? '停止绘制多边形' : '开始绘制多边形' }}
         </button>
-        <button class="line-toggle" @click="toggleDrawing" :class="{ active: drawingEnabled }">
-          {{ drawingEnabled ? '停止绘制线段' : '开始绘制线段' }}
+        <button class="line-toggle" @click="toggleDrawingLine" :class="{ active: drawingLineEnabled }">
+          {{ drawingLineEnabled ? '停止绘制线段' : '开始绘制线段' }}
         </button>
       </div>
     </div>
@@ -28,7 +28,7 @@
 
 <script setup>
 import { onMounted, ref, onUnmounted } from "vue";
-import { initViewer, setViewerPanorama, destroyViewer, SELECT_MARKER_EVENT, setDrawingEnabled } from './utils/viewerMark'
+import { initViewer, setViewerPanorama, destroyViewer, SELECT_MARKER_EVENT, setDrawMode, enableDrawing, disableDrawing, isDrawingEnabled, getDrawMode } from './utils/viewerMark'
 import mapboxgl from 'mapbox-gl'
 import * as turf from '@turf/turf';
 import { log } from "@deck.gl/core";
@@ -53,12 +53,21 @@ const imgWidth = ref(0);
 const imgHeight = ref(0);
 let minLineId = null;
 let maxLineId = null;
-const drawingEnabled = ref(false)
-function toggleDrawing() {
-  drawingEnabled.value = !drawingEnabled.value
-  setDrawingEnabled(drawingEnabled.value)
-}
+const drawingPolygonEnabled = ref(false)
+const drawingLineEnabled = ref(false)
 
+function toggleDrawingPolygon() {
+  drawingPolygonEnabled.value = !drawingPolygonEnabled.value
+  drawingLineEnabled.value = false
+  setDrawMode(drawingPolygonEnabled.value ? 'polygon' : false)
+  drawingPolygonEnabled.value ? enableDrawing() : disableDrawing();
+}
+function toggleDrawingLine() {
+  drawingPolygonEnabled.value = false
+  drawingLineEnabled.value = !drawingLineEnabled.value
+  setDrawMode(drawingLineEnabled.value ? 'line' : false)
+  drawingLineEnabled.value ? enableDrawing() : disableDrawing();
+}
 
 function addMarkerAndFly(lat, lng) {
   if (!mapLoaded) return;
@@ -82,7 +91,11 @@ function onMetaChange(e){
         rotation.value = typeof meta.rotation === 'number' ? meta.rotation : Number(meta.rotation) || 0;
         if(mapLoaded) {
           addMarkerAndFly(Number(meta.lat), Number(meta.lng));
-          intersectBuildingsWithPoints(Number(meta.lng), Number(meta.lat), 50)
+          const intersectBuildings = intersectBuildingsWithPoints(Number(meta.lng), Number(meta.lat), 50)
+          console.log('intersectBuildings', intersectBuildings);
+          console.log('intersected', intersected.value);
+          
+          
         } else {
           map.once('load', () => {
             addMarkerAndFly(Number(meta.lat), Number(meta.lng));
